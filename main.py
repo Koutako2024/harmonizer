@@ -6,23 +6,45 @@ from queue import Queue
 from threading import Thread
 from typing import NoReturn
 
-q: Queue[NDArray[np.float32]] = Queue()
+input_queue: Queue[NDArray[np.float32]] = Queue()
+output_queue: Queue[NDArray[np.float32]] = Queue()
 
 
-def send_input_audio(
-    indata: NDArray[np.float32], frames: int, time: _CDataBase, status: sd.CallbackFlags
+def audio_call_back(
+    indata: NDArray[np.float32],
+    outdata: NDArray[np.float32],
+    frames: int,
+    time: _CDataBase,
+    status: sd.CallbackFlags,
 ) -> None:
     if status:
         print(status)
-    q.put(indata.copy())
+    input_queue.put(indata.copy())
+    outdata[:] = output_queue.get().copy()
     return
 
 
 def process_audio(samplerate: int) -> NoReturn:
+    before_pitch: float = 400
     while True:
-        audio: NDArray[np.float32] = q.get()
-        pitch: float = detect_pitch(audio, samplerate)
+        # input
+        input_audio: NDArray[np.float32] = input_queue.get()
+        pitch: float = detect_pitch(input_audio, samplerate)
         print(f"pitch: {pitch:.2f}")
+
+        # output
+        # pitch = 400  # DEBUG
+        pitch *= 4  # * 2 ** (-4 / 12)
+        # pitch *= 2 ** (-1 / 3)
+
+        if pitch > 800:
+            pitch = before_pitch
+        else:
+            before_pitch = pitch
+        t: NDArray[np.float64] = np.arange(len(input_audio)) / samplerate
+        note: NDArray[np.float64] = np.sin(pitch * t * 2 * np.pi)
+        output_audio: NDArray[np.float32] = note.astype(np.float32)[:, np.newaxis]
+        output_queue.put(output_audio)
 
 
 def detect_pitch(audio: NDArray[np.float32], samplerate: int) -> float:
@@ -41,8 +63,8 @@ def detect_pitch(audio: NDArray[np.float32], samplerate: int) -> float:
 def main() -> None:
     samplerate: int = 44100
     blocksize: int = 2048
-    with sd.InputStream(
-        samplerate, blocksize, channels=1, callback=send_input_audio, dtype=np.float32
+    with sd.Stream(
+        samplerate, blocksize, channels=1, callback=audio_call_back, dtype=np.float32
     ):
         Thread(target=process_audio, args=(samplerate,), daemon=True).start()
         input()  # enter to quit.
