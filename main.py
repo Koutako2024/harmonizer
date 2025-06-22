@@ -26,6 +26,7 @@ def audio_call_back(
 
 def process_audio(samplerate: int) -> NoReturn:
     before_pitch: float = 400
+    phase: float = 0
     while True:
         # input
         input_audio: NDArray[np.float32] = input_queue.get()
@@ -34,17 +35,21 @@ def process_audio(samplerate: int) -> NoReturn:
 
         # output
         # pitch = 400  # DEBUG
-        pitch *= 4  # * 2 ** (-4 / 12)
-        # pitch *= 2 ** (-1 / 3)
+        # pitch *= 4  # * 2 ** (-4 / 12)
+        pitch *= 2 ** (-1 / 3)
 
-        if pitch > 800:
+        if pitch > 1600:
             pitch = before_pitch
         else:
             before_pitch = pitch
         t: NDArray[np.float64] = np.arange(len(input_audio)) / samplerate
-        note: NDArray[np.float64] = np.sin(pitch * t * 2 * np.pi)
+        note: NDArray[np.float64] = np.sin(pitch * t * 2 * np.pi + phase)
         output_audio: NDArray[np.float32] = note.astype(np.float32)[:, np.newaxis]
         output_queue.put(output_audio)
+
+        # update phase
+        phase += 2 * np.pi * pitch * len(input_audio) / samplerate
+        phase %= 2 * np.pi  # decrease amount
 
 
 def detect_pitch(audio: NDArray[np.float32], samplerate: int) -> float:
