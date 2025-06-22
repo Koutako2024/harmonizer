@@ -1,5 +1,11 @@
 # Notes
 
+## TODO
+
+* make frequency to any sound on piano.
+* sound in the same volume as input.
+* use input audio to output.
+
 ## 長3度下の出し方
 
 ある音から下に長3度下の音は、
