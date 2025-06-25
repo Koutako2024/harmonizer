@@ -4,6 +4,7 @@ from _cffi_backend import _CDataBase
 from numpy.typing import NDArray
 from queue import Queue
 from threading import Thread
+from math import log2
 from typing import NoReturn
 
 input_queue: Queue[NDArray[np.float32]] = Queue()
@@ -36,7 +37,9 @@ def process_audio(samplerate: int) -> NoReturn:
         # output
         # pitch = 400  # DEBUG
         # pitch *= 4  # * 2 ** (-4 / 12)
-        pitch *= 2 ** (-1 / 3)
+        pitch *= 4 * 2 ** (-1 / 3)
+        pitch = 440 * 2 ** (round(6 * log2(pitch / 440)) / 6)  # 全音階
+        # pitch = 440 * 2 ** (round(12 * log2(pitch / 440)) / 12) # 半音階
 
         if pitch > 1600:
             pitch = before_pitch
